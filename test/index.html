@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <style>
+
+    body, html {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+    }
+
+    .grid-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto;
+        grid-gap: 10px;
+        height: 100vh;
+    }
+
+    .left-content {
+        background-color: #eee;
+        padding: 10px;
+    }
+
+    .right-content {
+        background-color: #f5f5f5;
+        padding: 20px;
+    }
+
+    #myCanvas {
+        display:block;
+        width:100%;
+        box-shadow:10px 10px 15px #666;
+        margin:10px auto;
+        background:#FFF;
+    }
+
+    header {
+        margin-top:10px;
+        font-weight:bold;
+    }
+
+     /* Hide the default checkbox */
+     .toggle-input {
+        display: none;
+    }
+
+    /* Style the label as a button */
+    .toggle-label {
+        display: inline-block;
+        padding: 10px 20px;
+        cursor: pointer;
+        border-radius: 5px;
+        background-color: #3498db;
+        color: #fff;
+    }
+
+    /* Style the label when the checkbox is checked */
+    .toggle-input:checked + .toggle-label {
+        background-color: #e74c3c;
+    }
+
+    /* Style the label text when the checkbox is checked */
+    .toggle-input:checked + .toggle-label::before {
+        content: "Beam ON";
+    }
+
+    /* Style the label text when the checkbox is unchecked */
+    .toggle-label::before {
+        content: "Beam OFF";
+    }
+
+    #beamHistory {
+        width:99%;
+        resize:none;
+    }
+
+  </style>
+</head>
+<body>
+    <div class="grid-container">
+        <div class="left-content">
+            <div class="beam-controls">
+                <input type="checkbox" class="toggle-input" id="toggle-checkbox">
+                <label class="toggle-label" for="toggle-checkbox"></label>
+                <p>
+                    <button id="resetBeam">Reset Beam</button>
+                </p>
+                <hr />
+                <header>Select Cannon</header>
+                <select id="cannonSelect">
+                    <option value="0">Pixel</option>
+                    <option value="1">Line</option>
+                    <option value="2">Circle</option>
+                    <option value="3">Erase</option>
+                    <option value="4">Word</option>
+                    <option value="5">Angular</option>
+                </select>
+                <hr />
+                <header>Paint Canvas</header>
+                <select id="paintCanvas">
+                    <option value="transparent">Transparent</option>
+                    <option value="black">Black</option>
+                    <option value="blue">Blue</option>
+                    <option value="red">Red</option>
+                    <option value="green">Green</option> 
+                </select>
+                <p>
+                    <button id="clearCanvas">Clear Canvas</button>
+                </p>
+                <hr />
+                <header>Fire Beam</header>
+                <select id="fireBeam">
+                    <option value="false">False</option>
+                    <option value="true">True</option>
+                </select>
+                <header>Beam Color</header>
+                <select id="beamColor">
+                    <option value="black">Black</option>
+                    <option value="blue">Blue</option>
+                    <option value="red">Red</option>
+                    <option value="green">Green</option> 
+                </select>
+                <header>Beam Offset</header>
+                <select id="beamOffset">
+                    <option value="1">1</option>
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option> 
+                </select>
+                <header>Beam Delay</header>
+                <select id="beamDelay">
+                    <option value="1">1</option>
+                    <option value="10">10</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option> 
+                </select>
+                <!--<p>
+                    <button id="sendMessage">Send</button>
+                </p>-->
+                <hr />
+            </div>
+            <h3>Message History</h3>
+           <textarea id="beamHistory" rows="20" readonly></textarea>
+        </div>
+        <div class="right-content">
+            <canvas id="myCanvas"></canvas>
+        </div>
+    </div>
+    <script src="image-beam-cannon.js"></script>
+    <script>
+
+         // Intial state:
+         let STATE = {
+            "beamToggle":false,
+            "fireBeam":false,
+            "beamColor":"black",
+            "beamOffset":1,
+            "beamDelay":1,
+            "cannon":0
+        }
+
+        // Available cannon "shapes":
+        const beamCannons = [
+            // Draws pixel:
+            ImageBeamCannon.init({
+                "selector":"#myCanvas",
+                "offset":STATE.beamOffset,
+                "drawFn":(self) => ({
+                    "x":10,
+                    "y":10
+                })
+            }),
+            // Draws line:
+            ImageBeamCannon.LineBeam.init({
+                "selector":"#myCanvas",
+                "offset":STATE.beamOffset,
+                "drawFn":(self) => ({
+                    "x":0,
+                    "y":self.beamY + self.height
+                })
+            }),
+            // Draws Circle:
+            ImageBeamCannon.CircleBeam.init({
+                "selector":"#myCanvas",
+                "offset":STATE.beamOffset,
+                "drawFn":(self) => self.width
+            }),
+            // Erases canvas:
+            ImageBeamCannon.EraseBeam.init({
+                "selector":"#myCanvas",
+                "offset":STATE.beamOffset,
+                "drawFn":(self) => ({
+                    x:self.beamX,
+                    y:self.height
+                })
+            }),
+            // Writes words to canvas:
+            ImageBeamCannon.WordBeam.init({
+                "selector":"#myCanvas",
+                "offset":STATE.beamOffset,
+                "drawFn":(self) => ({
+                    "text":"Hello World",
+                    "size":"24px",
+                    "font":"Courier New"
+                })
+            }),
+             // Draw angled line to canvas:
+             ImageBeamCannon.AngularBeam.init({
+                "selector":"#myCanvas",
+                "offset":STATE.beamOffset,
+                "drawFn":(self) => ({
+                    "length":100,
+                    "direction":75
+                })
+            })
+        ]
+ 
+        // Element references:
+        const canvas = document.querySelector("#myCanvas");
+        const beamToggle = document.querySelector("#toggle-checkbox");
+        const fireBeam = document.querySelector("#fireBeam");
+        const beamColor = document.querySelector("#beamColor");
+        const beamOffset = document.querySelector("#beamOffset");
+        //const sendMessage = document.querySelector("#sendMessage");
+        const beamHistory = document.querySelector("#beamHistory");
+        const beamDelay = document.querySelector("#beamDelay");
+        const cannonSelect = document.querySelector("#cannonSelect");
+        const paintCanvas = document.querySelector("#paintCanvas");
+        const clearCanvas = document.querySelector("#clearCanvas");
+        const resetBeam = document.querySelector("#resetBeam");
+
+        // Load web-worker where image-beam-cannon will run from:
+        const worker = new Worker("./image-beam-cannon-worker.js")
+        worker.postMessage({"setup":{
+            width:canvas.width, 
+            height:canvas.height, 
+            delay:STATE.beamDelay, 
+            offset:STATE.beamOffset,
+           // origin:{"x":0, "y":canvas.height * .5}
+        }});
+
+        // Handles drawing to canvas
+        worker.onmessage = function (msg) {
+            const {x,y,color} = msg.data;
+            beamCannons[STATE.cannon].beamX = x;
+            beamCannons[STATE.cannon].beamY = y;
+            beamCannons[STATE.cannon].color = color;
+            beamCannons[STATE.cannon].drawBeam();    
+        }
+
+        /**
+         *
+         * Event Handlers
+         * 
+         */
+
+        // Updates beamToggle value:
+        beamToggle.addEventListener("click", function () {
+            STATE.beamToggle = !STATE.beamToggle;
+            if (STATE.beamToggle === true) {
+                worker.postMessage({"start":true});
+            } else {
+                worker.postMessage({"stop":true});
+            }
+            beamHistory.value += `${timeStamp()} BEAM: ${STATE.beamToggle ? "ON" : "OFF"} \n`;
+            beamHistory.scrollTop = beamHistory.scrollHeight;
+        })
+
+        // Updates "fireBeam" value:
+        fireBeam.addEventListener("change", function (evt) {
+            STATE.fireBeam = this.value;
+            updateBeam()
+        });
+        
+        // Updates "beamColor" value:
+        beamColor.addEventListener("change", function (evt) {
+            STATE.beamColor = this.value;
+            updateBeam()
+        });
+
+        // Updates "beamOffset" value:
+        beamOffset.addEventListener("change", function (evt) {
+            STATE.beamOffset = this.value;
+            updateBeam()
+        });
+
+        // Updates "beamOffset" value:
+        beamDelay.addEventListener("change", function (evt) {
+            STATE.beamDelay = this.value;
+            updateBeam()
+        });
+
+        // Updates "beamOffset" value:
+        cannonSelect.addEventListener("change", function (evt) {
+            STATE.cannon = this.value;
+        });
+
+        paintCanvas.addEventListener("change", function (evt) {
+            beamCannons[STATE.cannon].paint(this.value);
+        })
+
+        clearCanvas.addEventListener("click", function (evt) {
+            beamCannons[STATE.cannon].clear()
+        })
+
+        resetBeam.addEventListener("click", function (evt) {
+            worker.postMessage({"reset":true});
+            beamHistory.value += `${timeStamp()} BEAM: RESET \n`;
+            beamHistory.scrollTop = beamHistory.scrollHeight;
+        })
+
+        // Sends message and updates message history:
+        /*sendMessage.addEventListener("click", function () {
+            worker.postMessage({"message":{
+                "isFiring":STATE.fireBeam,
+                "color":STATE.beamColor,
+                "offset":STATE.beamOffset,
+                "delay":STATE.beamDelay
+            }});
+            for (let beamCannon of beamCannons) {
+                beamCannon.offset = STATE.beamOffset
+            }
+            beamHistory.value += `${timeStamp()} SEND: ${STATE.fireBeam}, ${STATE.beamColor}, ${STATE.beamOffset}, ${STATE.beamDelay} \n`;
+            beamHistory.scrollTop = beamHistory.scrollHeight;
+        })*/
+
+        /**
+         * 
+         *  Support functions
+         * 
+         */ 
+
+            // Send message to beam cannon to change how it's drawing:
+            function updateBeam() {
+                worker.postMessage({"message":{
+                    "isFiring":STATE.fireBeam,
+                    "color":STATE.beamColor,
+                    "offset":STATE.beamOffset,
+                    "delay":STATE.beamDelay
+                }});
+                for (let beamCannon of beamCannons) {
+                    beamCannon.offset = STATE.beamOffset
+                }
+                beamHistory.value += `${timeStamp()} SEND: ${STATE.fireBeam}, ${STATE.beamColor}, ${STATE.beamOffset}, ${STATE.beamDelay} \n`;
+                beamHistory.scrollTop = beamHistory.scrollHeight;
+            }
+
+
+            // Create timestamp for when a message was sent:
+            function timeStamp() {
+
+                // Create a new Date object for the current time
+                const currentTime = new Date();
+
+                // Get hours, minutes, and seconds
+                const hours = currentTime.getHours().toString().padStart(2, '0');
+                const minutes = currentTime.getMinutes().toString().padStart(2, '0');
+                const seconds = currentTime.getSeconds().toString().padStart(2, '0');
+                const milliseconds = currentTime.getMilliseconds().toString().padStart(3, '0');
+
+                // Format the timestamp as HH:MM:SS:MS
+                return `${hours}:${minutes}:${seconds}:${milliseconds}`;
+
+        }
+
+    </script>
+   
+</body>
